@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+asyncpg
+databases
+psycopg2-binary
+jinja2
+redis
+aioredis>=2.0
+dotenv

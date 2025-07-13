@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Counter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        .counter {
+            font-size: 24px;
+            margin: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 0 10px;
+        }
+        .button-container {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Counter</h1>
+    <div class="counter">Current value: {{ counter }}</div>
+    <div class="button-container">
+        <form action="/increment" method="post" style="display: inline;">
+            <button type="submit">+1</button>
+        </form>
+        <form action="/decrement" method="post" style="display: inline;">
+            <button type="submit">-1</button>
+        </form>
+    </div>
+</body>
+</html>
