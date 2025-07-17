@@ -2,12 +2,10 @@
 # /etc/init.d/redis-server stop
 # docker-compose down -v && docker-compose up --build
 
-"CREATE TABLE counters(id INT PRIMARY KEY, value INT);"
-
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from database import database, Counter, create_tables_async
+from database import database, Counter, ensure_tables_exist
 from redis_client import redis 
 from sqlalchemy import update, select
 
@@ -15,7 +13,6 @@ app = FastAPI(root_path="/api")
 templates = Jinja2Templates(directory="templates")
 
 REDIS_COUNTER_KEY = "app_counter"
-
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
@@ -40,7 +37,7 @@ async def add_process_time_header(request: Request, call_next):
 @app.on_event("startup")
 async def startup():
     await database.connect()
-    await create_tables_async()
+    await ensure_tables_exist()
     await redis.ping() 
     await database.execute(
         "INSERT INTO counters (id, value) VALUES (1, 0) ON CONFLICT (id) DO NOTHING"
