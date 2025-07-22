@@ -19,42 +19,41 @@ class Counter(Base):
     id = Column(Integer, primary_key=True)
     value = Column(Integer, default=0)
 
-async def wait_for_db(max_retries: int = 5, delay: float = 2.0):
-    """Wait for database to become available."""
+async def connect_to_db():
+    """Ensure database connection is established"""
+    if not database.is_connected:
+        await database.connect()
+
+async def disconnect_from_db():
+    """Close database connection"""
+    if database.is_connected:
+        await database.disconnect()
+
+async def wait_for_db(max_retries=5, delay=2.0):
+    """Wait for database to become available"""
     retry_count = 0
-    last_error = None
-    
     while retry_count < max_retries:
         try:
-            conn = await asyncpg.connect(
-                user=os.getenv("POSTGRES_USER"),
-                password=os.getenv("POSTGRES_PASSWORD"),
-                database=os.getenv("POSTGRES_DB"),
-                host="db",
-                port=5432
-            )
-            await conn.close()
+            await connect_to_db()
+            await database.execute("SELECT 1")
             return True
         except Exception as e:
-            last_error = e
             retry_count += 1
             print(f"Database connection failed (attempt {retry_count}/{max_retries}): {str(e)}")
             await asyncio.sleep(delay)
-    
-    raise ConnectionError(f"Could not connect to database after {max_retries} attempts. Last error: {str(last_error)}")
+    raise ConnectionError(f"Could not connect to database after {max_retries} attempts")
 
 async def ensure_tables_exist():
+    """Create tables if they don't exist"""
     await wait_for_db()
-    
     async with database.transaction():
-        await database.execute(
-            """
+        await database.execute("""
             CREATE TABLE IF NOT EXISTS counters (
                 id INTEGER PRIMARY KEY,
                 value INTEGER DEFAULT 0
             )
-            """
-        )
-        await database.execute(
-            "INSERT INTO counters (id, value) VALUES (1, 0) ON CONFLICT (id) DO NOTHING"
-        )
+        """)
+        await database.execute("""
+            INSERT INTO counters (id, value) VALUES (1, 0) 
+            ON CONFLICT (id) DO NOTHING
+        """)
