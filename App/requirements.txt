@@ -6,4 +6,5 @@ redis
 python-dotenv
 asyncpg
 prometheus-client
+pydantic-settings
 jinja2
