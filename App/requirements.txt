@@ -1,10 +1,9 @@
 fastapi
 uvicorn
+databases[postgresql]
 sqlalchemy
-asyncpg
-databases
-psycopg2-binary
-jinja2
 redis
-aioredis>=2.0
-dotenv
+python-dotenv
+asyncpg
+prometheus-client
+jinja2
