@@ -1,0 +1,51 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# ====================== Патчи для dev-окружения ======================
+
+# Уменьшаем количество реплик для локальной разработки
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: app
+
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: nginx
+
+# Уменьшаем ресурсы
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests
+        value:
+          cpu: "100m"
+          memory: "128Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits
+        value:
+          cpu: "300m"
+          memory: "384Mi"
+    target:
+      kind: Deployment
+      name: app
+
+# Добавляем NodePort для удобного доступа к Grafana и Prometheus
+  - path: patches/grafana-nodeport.yaml
+  - path: patches/prometheus-nodeport.yaml
+
+# ====================== Common настройки ======================
+
+commonLabels:
+  environment: dev
+  project: counter-service

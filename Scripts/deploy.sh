@@ -1,80 +1,32 @@
 #!/bin/bash
+set -euo pipefail
 
-COMPOSE_FILE="docker-compose.yml"
-SERVICE_NAME="app"
-GIT_REPO="https://github.com/Piordik/Practice.git"
-GIT_BRANCH="main"
-PROJECT_DIR="/home/pva/Practice"
-HEALTH_CHECK_URL="http://localhost:8080/health"
-MAX_RETRIES=10
-RETRY_INTERVAL=5
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
 
-cd "$PROJECT_DIR" || { echo "Error getting to the directory $PROJECT_DIR"; exit 1; }
-
-echo "=== Start deploy ==="
-echo "Time: $(date)"
-echo "Branch: $GIT_BRANCH"
-
-check_health() {
-    local retries=0
-    echo "Check $HEALTH_CHECK_URL..."
-    
-    while [ $retries -lt $MAX_RETRIES ]; do
-        response=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_CHECK_URL" || true)
-        
-        if [ "$response" = "200" ]; then
-            echo "Success (HTTP 200)"
-            return 0
-        fi
-        
-        retries=$((retries+1))
-        echo "Try $retries / $MAX_RETRIES: unable to connect (HTTP: ${response:-none})"
-        sleep $RETRY_INTERVAL
-    done
-    
-    echo "Healthcheck failed after $MAX_RETRIES tries"
-    return 1
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*"
 }
 
-echo "Stopping $SERVICE_NAME..."
-docker-compose -f "$COMPOSE_FILE" stop "$SERVICE_NAME"
+log "Запуск деплоя Counter Service..."
 
-echo "Update git rep"
-git fetch origin
-git checkout "$GIT_BRANCH"
-git pull origin "$GIT_BRANCH"
+# 1. Бэкап
+"$SCRIPT_DIR/db-utils.sh" backup
 
-if [ $? -ne 0 ]; then
-    echo "Error updating git."
-    exit 1
-fi
+# 2. Сборка образа
+log "Сборка Docker образа..."
+docker build -t practice-recovery-app:latest .
 
-echo "Building image $SERVICE_NAME..."
-docker-compose -f "$COMPOSE_FILE" build "$SERVICE_NAME"
+# 3. Применение манифестов
+log "Применение Kubernetes манифестов..."
+kubectl apply -f k8s/
 
-if [ $? -ne 0 ]; then
-    echo "Building error."
-    exit 1
-fi
+# 4. Перезапуск
+log "Перезапуск приложения..."
+kubectl rollout restart deployment/app
 
-echo "Running $SERVICE_NAME..."
-docker-compose -f "$COMPOSE_FILE" up -d --no-deps --build "$SERVICE_NAME"
+# 5. Ожидание
+log "Ожидание готовности..."
+kubectl rollout status deployment/app --timeout=180s
 
-SERVICE_STATUS=$(docker-compose -f "$COMPOSE_FILE" ps -q "$SERVICE_NAME" | xargs docker inspect -f '{{.State.Status}}')
-
-if [ "$SERVICE_STATUS" != "running" ]; then
-    echo "=== Error ==="
-    echo "$SERVICE_NAME is stopped"
-    echo "Status: $SERVICE_STATUS"
-    exit 1
-fi
-
-if ! check_health; then
-    echo "=== Error ==="
-    echo "Service is enabled, but healthcheck failed"
-    exit 1
-fi
-
-echo "=== Success ==="
-echo "Service $SERVICE_NAME is enabled healthcheck is done"
-echo "Time: $(date)"
+log "Деплой успешно завершён!"

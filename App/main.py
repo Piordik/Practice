@@ -11,6 +11,7 @@ from sqlalchemy import update, select
 import prometheus_client as prom
 import logging
 
+
 # ====================== Конфигурация ======================
 REDIS_COUNTER_KEY = "app_counter"
 DEFAULT_COUNTER_ID = 1
@@ -21,6 +22,7 @@ templates = Jinja2Templates(directory="templates")
 # Prometheus метрики
 REQUEST_COUNT = prom.Counter('app_request_count', 'Total HTTP Requests')
 REQUEST_LATENCY = prom.Histogram('app_request_latency_seconds', 'Request latency')
+
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +99,9 @@ async def update_counter(delta: int):
         )
         await redis.setex(REDIS_COUNTER_KEY, 600, new_value)
         
+        COUNTER_VALUE.set(new_value)
+        COUNTER_CHANGES.inc()
+
     except Exception as e:
         logger.error(f"Failed to update counter: {e}")
 
